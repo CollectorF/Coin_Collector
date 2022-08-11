@@ -15,6 +15,8 @@ public class PlayerController : MonoBehaviour
     private Vector3 currentTapPoint;
     private Vector3 currentWayPoint;
     private Queue<Vector3> tapPoints;
+    private LineRenderer line;
+    private int pointsCount = 0;
 
     private void Awake()
     {
@@ -25,6 +27,10 @@ public class PlayerController : MonoBehaviour
         tapPoints = new Queue<Vector3>();
         agent.enabled = true;
         playerCamera = Camera.main;
+
+        line = gameObject.AddComponent<LineRenderer>();
+        line.material = new Material(Shader.Find("Sprites/Default"));
+        line.widthMultiplier = 0.2f;
     }
 
     private void OnDisable()
@@ -38,6 +44,10 @@ public class PlayerController : MonoBehaviour
         if (agent.enabled && !agent.hasPath)
         {
             SetNextDestination();
+            if (pointsCount > 0)
+            {
+                pointsCount--;
+            }
         }
     }
 
@@ -50,9 +60,20 @@ public class PlayerController : MonoBehaviour
             {
                 currentWayPoint = raycastHitInfo.point;
                 agent.SetDestination(currentWayPoint);
+                //Invoke("CheckPointOnPath", 0.2f);
             }
         }
     }
+
+    private void CheckPointOnPath()
+    {
+        line.positionCount = agent.path.corners.Length;
+        for (int i = 0; i < agent.path.corners.Length; i++)
+        {
+            line.SetPosition(i, agent.path.corners[i]);
+        }
+    }
+
 
     public void OnClick(InputAction.CallbackContext callback)
     {
@@ -64,6 +85,12 @@ public class PlayerController : MonoBehaviour
             currentTapPoint = Mouse.current.position.ReadValue();
 #endif
             tapPoints.Enqueue(currentTapPoint);
+            pointsCount++;
+            line.positionCount = pointsCount;
+            for (int i = 0; i < pointsCount; i++)
+            {
+                line.SetPosition(i, currentTapPoint);
+            }
         }
     }
 }
