@@ -1,1 +1,1 @@
-# Coin_Collector
+# Unity test task.
