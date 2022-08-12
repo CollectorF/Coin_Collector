@@ -9,14 +9,18 @@ public class PlayerController : MonoBehaviour
 {
     [SerializeField]
     private InputAction clickInputAction;
+    [SerializeField]
+    private GameObject visiblePath;
+    [SerializeField]
+    private GameObject linePrefab;
+    [SerializeField]
+    private float comparationTolerance = 0.1f;
 
     private NavMeshAgent agent;
     private Camera playerCamera;
     private Vector3 currentTapPoint;
-    private Vector3 currentWayPoint;
+    private LineController currentLine;
     private Queue<Vector3> tapPoints;
-    private LineRenderer line;
-    private int pointsCount = 0;
 
     private void Awake()
     {
@@ -27,10 +31,6 @@ public class PlayerController : MonoBehaviour
         tapPoints = new Queue<Vector3>();
         agent.enabled = true;
         playerCamera = Camera.main;
-
-        line = gameObject.AddComponent<LineRenderer>();
-        line.material = new Material(Shader.Find("Sprites/Default"));
-        line.widthMultiplier = 0.2f;
     }
 
     private void OnDisable()
@@ -44,10 +44,10 @@ public class PlayerController : MonoBehaviour
         if (agent.enabled && !agent.hasPath)
         {
             SetNextDestination();
-            if (pointsCount > 0)
-            {
-                pointsCount--;
-            }
+        }
+        if (currentLine != null && CompareVectors(agent.transform.position, currentLine.points[currentLine.points.Count - 1], comparationTolerance))
+        {
+            Destroy(currentLine.gameObject);
         }
     }
 
@@ -55,25 +55,22 @@ public class PlayerController : MonoBehaviour
     {
         if (tapPoints.TryDequeue(out Vector3 result))
         {
-            Ray ray = playerCamera.ScreenPointToRay(result);
-            if (Physics.Raycast(ray, out RaycastHit raycastHitInfo))
-            {
-                currentWayPoint = raycastHitInfo.point;
-                agent.SetDestination(currentWayPoint);
-                //Invoke("CheckPointOnPath", 0.2f);
-            }
+            agent.SetDestination(result);
         }
     }
 
-    private void CheckPointOnPath()
+    private bool CompareVectors(Vector3 a, Vector3 b, float tolerance)
     {
-        line.positionCount = agent.path.corners.Length;
-        for (int i = 0; i < agent.path.corners.Length; i++)
+        float distance = Vector3.Distance(a, b);
+        if (distance < tolerance)
         {
-            line.SetPosition(i, agent.path.corners[i]);
+            return true;
+        }
+        else
+        {
+            return false;
         }
     }
-
 
     public void OnClick(InputAction.CallbackContext callback)
     {
@@ -84,12 +81,19 @@ public class PlayerController : MonoBehaviour
 #elif UNITY_STANDALONE
             currentTapPoint = Mouse.current.position.ReadValue();
 #endif
-            tapPoints.Enqueue(currentTapPoint);
-            pointsCount++;
-            line.positionCount = pointsCount;
-            for (int i = 0; i < pointsCount; i++)
+            Ray ray = playerCamera.ScreenPointToRay(currentTapPoint);
+            if (Physics.Raycast(ray, out RaycastHit raycastHitInfo))
             {
-                line.SetPosition(i, currentTapPoint);
+                tapPoints.Enqueue(raycastHitInfo.point);
+                if (currentLine == null)
+                {
+                    currentLine = Instantiate(linePrefab, Vector3.zero, Quaternion.identity, visiblePath.transform).GetComponent<LineController>();
+                }
+                if (!agent.hasPath)
+                {
+                    currentLine.AddPoint(gameObject.transform.position);
+                }
+                currentLine.AddPoint(raycastHitInfo.point);
             }
         }
     }
